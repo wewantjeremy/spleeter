@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stem Splitter</title>
+  <style>
+    
+    body {
+  background: linear-gradient(to bottom, #b389ed, #faae7b);
+   min-height: 100vh;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 300; max-width: 640px; margin: 60px auto; padding: 0 20px; }
+    h1 { margin-bottom: 8px; }
+    p { color: #555; margin-top: 0; }
+    input[type="text"] { width: 100%; padding: 10px; font-size: 16px; box-sizing: border-box; margin-top: 16px; }
+    #btn {
+      margin-top: 14px;
+      width: 120px;
+      height: 60px;
+      border-radius: 999px;
+      background: #7c3aed;
+      color: rgb(41, 34, 66);
+      font-size: 20px;
+      font-weight: bold;
+      border: BLACK;
+      cursor: pointer;
+      position: center;
+      overflow: hidden;
+      display: block;
+      box-shadow: none;
+      transition: box-shadow 0.1s ease;
+      
+    }
+    #btn:active {
+      box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.35), 0 4px 16px rgba(124, 58, 237, 0.5);
+    }
+    #btn::after {
+      content: "";
+      position: absolute;
+      top: -50%;
+      left: -75%;
+      width: 50%;
+      height: 200%;
+      background: linear-gradient(
+        to right,
+        rgba(255,255,255,0) 0%,
+        rgba(255,255,255,0.55) 50%,
+        rgba(255,255,255,0) 100%
+      );
+      transform: skewX(-20deg);
+      animation: sunray 20s linear infinite;
+    }
+    @keyframes sunray {
+      0%   { left: -75%; }
+      100% { left: 125%; }
+    }
+    #btn:disabled { background: #a78bfa; cursor: not-allowed; }
+    #status { margin-top: 24px; font-size: 15px; color: #333; }
+    #results { margin-top: 20px; }
+    #results h2 { margin-bottom: 12px; }
+    .stem-row { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+    .stem-name { width: 60px; font-weight: bold; text-transform: capitalize; }
+    input[type="range"] { flex: 1; }
+    span[id^="label-"] { width: 90px; font-size: 13px; color: #555; }
+    .stem-link { font-size: 14px; white-space: nowrap; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>YT Stem Splitter & Pitch Shifter</h1>
+  <p>Paste a YouTube URL to shift pitch & split a song into vocals, drums, bass, and other.</p>
+
+  <form id="form">
+    <input type="text" id="url" placeholder="https://www.youtube.com/watch?v=..." required>
+    <button type="submit" id="btn">Split</button>
+  </form>
+
+  <div id="status"></div>
+  <div id="results"></div>
+
+  <script>
+    const form = document.getElementById("form");
+    const status = document.getElementById("status");
+    const results = document.getElementById("results");
+    const btn = document.getElementById("btn");
+
+    function updateLabel(name) {
+      const slider = document.getElementById(`slider-${name}`);
+      const val = parseInt(slider.value);
+      const baseHref = slider.dataset.href;
+      const safeTitle = slider.dataset.title;
+      const label = document.getElementById(`label-${name}`);
+      const link = document.getElementById(`link-${name}`);
+      label.textContent = (val >= 0 ? `+${val}` : `${val}`) + " semitones";
+      const url = val === 0 ? baseHref : `${baseHref}?semitones=${val}`;
+      const filename = val === 0
+        ? `${safeTitle}_${name}.wav`
+        : `${safeTitle}_${name}_shifted${val >= 0 ? "+" : ""}${val}.wav`;
+      link.href = url;
+      link.download = filename;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const url = document.getElementById("url").value.trim();
+
+      status.textContent = "Downloading and splitting... this may take a few minutes.";
+      results.innerHTML = "";
+      btn.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append("url", url);
+
+        const res = await fetch("/split", { method: "POST", body: formData });
+        const data = await res.json();
+
+        if (!res.ok) {
+          status.innerHTML = `<span class="error">Error: ${data.error}</span>`;
+          return;
+        }
+        const title = data.title;
+        const safeTitle = title.replace(/[\/:*?"<>|]/g, "_");
+        status.textContent = `Done: "${data.title}"`;
+        results.innerHTML = `<h2>Download stems</h2>` +
+          Object.entries(data.stems).map(([name, href]) =>
+            `<div class="stem-row">
+              <span class="stem-name">${name}</span>
+              <input type="range" min="-12" max="12" value="0" step="1"
+                id="slider-${name}" data-href="${href}" data-title="${safeTitle}"
+                oninput="updateLabel('${name}')">
+              <span id="label-${name}">0 semitones</span>
+              <a id="link-${name}" class="stem-link" href="${href}" download="${safeTitle}_${name}.wav">Download</a>
+            </div>`
+          ).join("");
+      } catch (err) {
+        status.innerHTML = `<span class="error">Something went wrong.</span>`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
