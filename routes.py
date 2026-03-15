@@ -2,6 +2,9 @@ import os
 import glob
 import subprocess
 import tempfile
+import numpy as np
+import librosa
+import soundfile as sf
 from flask import Blueprint, request, jsonify, send_file
 from database import SessionLocal
 from models import Song
@@ -52,14 +55,14 @@ def split():
             raise Exception("Download failed — no file found")
         audio_file = files[0]
 
-        # Run demucs
+        # Run demucs (6-stem model: vocals, drums, bass, guitar, piano, other)
         subprocess.run(
-            ["demucs", "-o", SEPARATED_DIR, audio_file],
+            ["demucs", "-n", "htdemucs_6s", "-o", SEPARATED_DIR, audio_file],
             check=True
         )
 
         track_name = os.path.splitext(os.path.basename(audio_file))[0]
-        output_dir = os.path.join(SEPARATED_DIR, "htdemucs", track_name)
+        output_dir = os.path.join(SEPARATED_DIR, "htdemucs_6s", track_name)
 
         song.status = "done"
         song.output_dir = output_dir
@@ -68,7 +71,7 @@ def split():
         return jsonify({
             "id": song.id,
             "title": song.title,
-            "stems": {s: f"/stems/{song.id}/{s}" for s in ["vocals", "drums", "bass", "other"]}
+            "stems": {s: f"/stems/{song.id}/{s}" for s in ["vocals", "drums", "bass", "guitar", "piano", "other"]}
         })
 
     except Exception as e:
@@ -81,10 +84,7 @@ def split():
 
 @bp.route("/stems/<int:song_id>/<stem>")
 def get_stem(song_id, stem):
-    import numpy as np
-    import librosa
-    import soundfile as sf
-    if stem not in {"vocals", "drums", "bass", "other"}:
+    if stem not in {"vocals", "drums", "bass", "guitar", "piano", "other"}:
         return "Invalid stem", 400
 
     db = SessionLocal()
