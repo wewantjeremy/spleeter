@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-#Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 app.register_blueprint(bp)
 @app.route("/health")
 def health():

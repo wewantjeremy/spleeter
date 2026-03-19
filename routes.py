@@ -39,14 +39,16 @@ def split():
         output_template = os.path.join(DOWNLOADS_DIR, f"{song.id}.%(ext)s")
         # Fetch title separately so stdout is unambiguous
         title_result = subprocess.run(
-            ["yt-dlp", "--print", "title", "--no-download", url],
+            ["yt-dlp", "--print", "title", "--no-download",
+             url],
             capture_output=True, text=True, check=True
         )
         song.title = title_result.stdout.strip()
         db.commit()
 
         subprocess.run(
-            ["yt-dlp", "-x", "--audio-format", "wav", "-o", output_template, url],
+            ["yt-dlp", "-x", "--audio-format", "wav", "-o", output_template,
+             url],
             capture_output=True, text=True, check=True
         )
 
